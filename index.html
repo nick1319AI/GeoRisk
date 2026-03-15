@@ -1,533 +1,221 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GeoRisk — Análise Geológica & Econômica</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap"
-        rel="stylesheet" />
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GeoRisk — Análise Geológica & Econômica</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0e1a; --surface: #111827; --border: #1e2d40;
+      --accent: #00d4aa; --text: #e2e8f0; --muted: #64748b;
+      --danger: #ef4444; --warning: #f59e0b; --safe: #10b981;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; }
+    .app { display: flex; flex-direction: column; height: 100dvh; }
+    .header { padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; background: var(--surface); flex-shrink: 0; }
+    .logo { font-size: 18px; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; }
+    .logo span { color: var(--text); }
+    .tagline { font-size: 10px; color: var(--muted); font-family: 'Space Mono', monospace; margin-top: 2px; }
 
-        :root {
-            --bg: #0a0e1a;
-            --surface: #111827;
-            --border: #1e2d40;
-            --accent: #00d4aa;
-            --text: #e2e8f0;
-            --muted: #64748b;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --safe: #10b981;
-        }
+    /* DESKTOP */
+    .main { display: flex; flex: 1; overflow: hidden; }
+    .map-container { flex: 1; position: relative; }
+    #map { width: 100%; height: 100%; }
+    .map-overlay {
+      position: absolute; top: 12px; left: 12px; z-index: 1000;
+      background: rgba(17,24,39,0.92); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px;
+      font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted);
+    }
+    .map-overlay b { color: var(--accent); display: block; margin-bottom: 4px; }
+    .sidebar { width: 340px; background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
 
-        body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: 'Syne', sans-serif;
-            height: 100vh;
-            overflow: hidden;
-        }
+    /* MOBILE */
+    @media (max-width: 768px) {
+      .main { flex-direction: column; overflow: auto; }
+      .map-container { height: 45dvh; flex: none; }
+      .sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border); overflow-y: visible; flex: 1; }
+      .map-overlay { font-size: 10px; padding: 7px 10px; }
+    }
 
-        .app {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
+    .sidebar-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; gap: 12px; min-height: 200px; }
+    .sidebar-empty .icon { font-size: 36px; opacity: 0.3; }
+    .sidebar-empty p { color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .result-panel { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+    .location-header { border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+    .location-name { font-size: 15px; font-weight: 800; }
+    .location-coords { font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; margin-top: 2px; }
+    .score-card { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
+    .score-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+    .score-value { font-size: 42px; font-weight: 800; line-height: 1; }
+    .score-value.safe { color: var(--safe); }
+    .score-value.moderate { color: var(--warning); }
+    .score-value.danger { color: var(--danger); }
+    .score-verdict { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    .risks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .risk-item { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+    .risk-item-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .risk-item-value { font-size: 13px; font-weight: 600; }
+    .risk-item-value.low { color: var(--safe); }
+    .risk-item-value.medium { color: var(--warning); }
+    .risk-item-value.high { color: var(--danger); }
+    .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-family: 'Space Mono', monospace; margin-bottom: 8px; }
+    .scenarios { display: flex; flex-direction: column; gap: 8px; }
+    .scenario { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+    .scenario-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .scenario-name { font-size: 12px; font-weight: 600; }
+    .scenario-pct { font-size: 13px; font-weight: 700; font-family: 'Space Mono', monospace; }
+    .scenario-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+    .scenario.optimistic { border-color: #10b98133; }
+    .scenario.optimistic .scenario-name, .scenario.optimistic .scenario-pct { color: var(--safe); }
+    .scenario.moderate2 { border-color: #f59e0b33; }
+    .scenario.moderate2 .scenario-name, .scenario.moderate2 .scenario-pct { color: var(--warning); }
+    .scenario.pessimistic { border-color: #ef444433; }
+    .scenario.pessimistic .scenario-name, .scenario.pessimistic .scenario-pct { color: var(--danger); }
+    .verdict-box { background: var(--bg); border-radius: 10px; padding: 14px; border-left: 3px solid var(--accent); }
+    .verdict-box.no { border-left-color: var(--danger); }
+    .verdict-box.maybe { border-left-color: var(--warning); }
+    .verdict-box.gold { border-left-color: #fbbf24; }
+    .verdict-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+    .verdict-text { font-size: 12px; color: var(--muted); line-height: 1.6; }
+    .years-control { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+    .years-control label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .years-control input[type=range] { flex: 1; accent-color: var(--accent); }
+    .years-control span { font-size: 13px; font-weight: 700; color: var(--accent); font-family: 'Space Mono', monospace; min-width: 50px; text-align: right; }
+    .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 40px 24px; }
+    .spinner { width: 36px; height: 36px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 13px; color: var(--muted); text-align: center; font-family: 'Space Mono', monospace; line-height: 1.6; }
+    .analyze-btn { background: var(--accent); color: #0a0e1a; border: none; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 700; font-family: 'Syne', sans-serif; cursor: pointer; width: 100%; transition: opacity 0.2s; }
+    .analyze-btn:hover { opacity: 0.85; }
 
-        .header {
-            padding: 12px 20px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            background: var(--surface);
-            flex-shrink: 0;
-        }
-
-        .logo {
-            font-size: 18px;
-            font-weight: 800;
-            color: var(--accent);
-            letter-spacing: -0.5px;
-        }
-
-        .logo span {
-            color: var(--text);
-        }
-
-        .tagline {
-            font-size: 11px;
-            color: var(--muted);
-            font-family: 'Space Mono', monospace;
-            margin-top: 2px;
-        }
-
-        .main {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-        }
-
-        .map-container {
-            flex: 1;
-            position: relative;
-        }
-
-        #map {
-            width: 100%;
-            height: 100%;
-        }
-
-        .map-overlay {
-            position: absolute;
-            top: 12px;
-            left: 12px;
-            z-index: 1000;
-            background: rgba(17, 24, 39, 0.92);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 10px 14px;
-            font-family: 'Space Mono', monospace;
-            font-size: 11px;
-            color: var(--muted);
-        }
-
-        .map-overlay b {
-            color: var(--accent);
-            display: block;
-            margin-bottom: 4px;
-        }
-
-        .sidebar {
-            width: 340px;
-            background: var(--surface);
-            border-left: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-        }
-
-        .sidebar-empty {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-            text-align: center;
-            gap: 12px;
-        }
-
-        .sidebar-empty .icon {
-            font-size: 40px;
-            opacity: 0.3;
-        }
-
-        .sidebar-empty p {
-            color: var(--muted);
-            font-size: 13px;
-            line-height: 1.6;
-        }
-
-        .result-panel {
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }
-
-        .location-header {
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 12px;
-        }
-
-        .location-name {
-            font-size: 16px;
-            font-weight: 800;
-        }
-
-        .location-coords {
-            font-size: 11px;
-            color: var(--muted);
-            font-family: 'Space Mono', monospace;
-            margin-top: 2px;
-        }
-
-        .score-card {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 14px;
-            text-align: center;
-        }
-
-        .score-label {
-            font-size: 11px;
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 6px;
-        }
-
-        .score-value {
-            font-size: 42px;
-            font-weight: 800;
-            line-height: 1;
-        }
-
-        .score-value.safe {
-            color: var(--safe);
-        }
-
-        .score-value.moderate {
-            color: var(--warning);
-        }
-
-        .score-value.danger {
-            color: var(--danger);
-        }
-
-        .score-verdict {
-            font-size: 12px;
-            color: var(--muted);
-            margin-top: 6px;
-        }
-
-        .risks-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-        }
-
-        .risk-item {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 10px;
-        }
-
-        .risk-item-label {
-            font-size: 10px;
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 4px;
-        }
-
-        .risk-item-value {
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        .risk-item-value.low {
-            color: var(--safe);
-        }
-
-        .risk-item-value.medium {
-            color: var(--warning);
-        }
-
-        .risk-item-value.high {
-            color: var(--danger);
-        }
-
-        .section-title {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--muted);
-            font-family: 'Space Mono', monospace;
-            margin-bottom: 8px;
-        }
-
-        .scenarios {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .scenario {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 10px 12px;
-        }
-
-        .scenario-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 4px;
-        }
-
-        .scenario-name {
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .scenario-pct {
-            font-size: 13px;
-            font-weight: 700;
-            font-family: 'Space Mono', monospace;
-        }
-
-        .scenario-desc {
-            font-size: 11px;
-            color: var(--muted);
-            line-height: 1.5;
-        }
-
-        .scenario.optimistic {
-            border-color: #10b98133;
-        }
-
-        .scenario.optimistic .scenario-name,
-        .scenario.optimistic .scenario-pct {
-            color: var(--safe);
-        }
-
-        .scenario.moderate2 {
-            border-color: #f59e0b33;
-        }
-
-        .scenario.moderate2 .scenario-name,
-        .scenario.moderate2 .scenario-pct {
-            color: var(--warning);
-        }
-
-        .scenario.pessimistic {
-            border-color: #ef444433;
-        }
-
-        .scenario.pessimistic .scenario-name,
-        .scenario.pessimistic .scenario-pct {
-            color: var(--danger);
-        }
-
-        .verdict-box {
-            background: var(--bg);
-            border-radius: 10px;
-            padding: 14px;
-            border-left: 3px solid var(--accent);
-        }
-
-        .verdict-box.no {
-            border-left-color: var(--danger);
-        }
-
-        .verdict-box.maybe {
-            border-left-color: var(--warning);
-        }
-
-        .verdict-box.gold {
-            border-left-color: #fbbf24;
-        }
-
-        /* Cor nova para investimento bom */
-        .verdict-title {
-            font-size: 13px;
-            font-weight: 700;
-            margin-bottom: 6px;
-        }
-
-        .verdict-text {
-            font-size: 12px;
-            color: var(--muted);
-            line-height: 1.6;
-        }
-
-        .years-control {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 10px 12px;
-        }
-
-        .years-control label {
-            font-size: 12px;
-            color: var(--muted);
-            white-space: nowrap;
-        }
-
-        .years-control input[type=range] {
-            flex: 1;
-            accent-color: var(--accent);
-        }
-
-        .years-control span {
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--accent);
-            font-family: 'Space Mono', monospace;
-            min-width: 50px;
-            text-align: right;
-        }
-
-        .loading-state {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 14px;
-            padding: 24px;
-        }
-
-        .spinner {
-            width: 36px;
-            height: 36px;
-            border: 2px solid var(--border);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .loading-text {
-            font-size: 13px;
-            color: var(--muted);
-            text-align: center;
-            font-family: 'Space Mono', monospace;
-            line-height: 1.6;
-        }
-
-        .analyze-btn {
-            background: var(--accent);
-            color: #0a0e1a;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 16px;
-            font-size: 13px;
-            font-weight: 700;
-            font-family: 'Syne', sans-serif;
-            cursor: pointer;
-            width: 100%;
-            transition: opacity 0.2s;
-        }
-
-        .analyze-btn:hover {
-            opacity: 0.85;
-        }
-    </style>
+    /* CATÁSTROFES */
+    .disaster-list { display: flex; flex-direction: column; gap: 8px; }
+    .disaster-item { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; border-left: 3px solid var(--danger); }
+    .disaster-item.none { border-left-color: var(--safe); }
+    .disaster-year { font-size: 10px; color: var(--muted); font-family: 'Space Mono', monospace; margin-bottom: 3px; }
+    .disaster-desc { font-size: 12px; line-height: 1.5; color: var(--text); }
+    .disaster-none { font-size: 12px; color: var(--safe); }
+  </style>
 </head>
-
 <body>
-    <div class="app">
-        <div class="header">
-            <div>
-                <div class="logo">GEO<span>RISK</span></div>
-                <div class="tagline">Análise de Risco e Potencial de Investimento</div>
-            </div>
-        </div>
-        <div class="main">
-            <div class="map-container">
-                <div id="map"></div>
-                <div class="map-overlay">
-                    <b>Como usar</b>
-                    Clique em qualquer ponto<br>do mapa para analisar
-                </div>
-            </div>
-            <div class="sidebar">
-                <div id="sidebar-content">
-                    <div class="sidebar-empty">
-                        <div class="icon">🌍</div>
-                        <p>Clique em qualquer lugar do mapa para analisar os riscos geológicos e o potencial econômico
-                            da região</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <div class="app">
+    <div class="header">
+      <div>
+        <div class="logo">GEO<span>RISK</span></div>
+        <div class="tagline">Análise de Risco e Potencial de Investimento</div>
+      </div>
     </div>
+    <div class="main">
+      <div class="map-container">
+        <div id="map"></div>
+        <div class="map-overlay">
+          <b>Como usar</b>
+          Toque em qualquer ponto<br>do mapa para analisar
+        </div>
+      </div>
+      <div class="sidebar">
+        <div id="sidebar-content">
+          <div class="sidebar-empty">
+            <div class="icon">🌍</div>
+            <p>Toque em qualquer lugar do mapa para analisar os riscos geológicos e o potencial econômico da região</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        const map = L.map('map').setView([-15.78, -47.92], 4); // Inicia o mapa centralizado no Brasil
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '©OpenStreetMap ©CARTO', maxZoom: 18
-        }).addTo(map);
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([-15.78, -47.92], 4);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '©OpenStreetMap ©CARTO', maxZoom: 18
+    }).addTo(map);
 
-        let marker = null;
-        let years = 30;
-        let currentLat, currentLng, currentLocation;
-        const sidebarContent = document.getElementById('sidebar-content');
+    let marker = null;
+    let years = 30;
+    let currentLat, currentLng, currentLocation;
+    const sidebarContent = document.getElementById('sidebar-content');
 
-        map.on('click', async (e) => {
-            const { lat, lng } = e.latlng;
-            currentLat = lat; currentLng = lng;
-            if (marker) map.removeLayer(marker);
-            marker = L.circleMarker([lat, lng], {
-                radius: 8, fillColor: '#00d4aa', color: '#00d4aa',
-                weight: 2, opacity: 1, fillOpacity: 0.4
-            }).addTo(map);
-            showLoading(lat, lng);
-            try {
-                currentLocation = await reverseGeocode(lat, lng);
-                const analysis = await callBackend(lat, lng, currentLocation, years);
-                renderResult(analysis, lat, lng, currentLocation);
-            } catch (err) {
-                sidebarContent.innerHTML = `<div class="sidebar-empty"><div class="icon">⚠️</div><p style="color:#ef4444">${err.message}</p></div>`;
-            }
-        });
+    map.on('click', async (e) => {
+      const { lat, lng } = e.latlng;
+      currentLat = lat; currentLng = lng;
+      if (marker) map.removeLayer(marker);
+      marker = L.circleMarker([lat, lng], {
+        radius: 8, fillColor: '#00d4aa', color: '#00d4aa',
+        weight: 2, opacity: 1, fillOpacity: 0.4
+      }).addTo(map);
+      showLoading(lat, lng);
 
-        function showLoading(lat, lng) {
-            sidebarContent.innerHTML = `
+      // No mobile, rola para a sidebar automaticamente
+      if (window.innerWidth <= 768) {
+        document.querySelector('.sidebar').scrollIntoView({ behavior: 'smooth' });
+      }
+
+      try {
+        currentLocation = await reverseGeocode(lat, lng);
+        const analysis = await callBackend(lat, lng, currentLocation, years);
+        renderResult(analysis, lat, lng, currentLocation);
+      } catch (err) {
+        sidebarContent.innerHTML = `<div class="sidebar-empty"><div class="icon">⚠️</div><p style="color:#ef4444">${err.message}</p></div>`;
+      }
+    });
+
+    function showLoading(lat, lng) {
+      sidebarContent.innerHTML = `
         <div class="loading-state">
           <div class="spinner"></div>
           <div class="loading-text">Analisando região...<br>${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
         </div>`;
-        }
+    }
 
-        async function reverseGeocode(lat, lng) {
-            try {
-                const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
-                const d = await r.json();
-                return d.display_name?.split(',').slice(0, 2).join(',') || `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
-            } catch { return `${lat.toFixed(2)}, ${lng.toFixed(2)}`; }
-        }
+    async function reverseGeocode(lat, lng) {
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+        const d = await r.json();
+        return d.display_name?.split(',').slice(0, 2).join(',') || `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
+      } catch { return `${lat.toFixed(2)}, ${lng.toFixed(2)}`; }
+    }
 
-        async function callBackend(lat, lng, location, yrs) {
-            // 👇 AQUI MUDOU: Agora funciona no Glitch e localmente!
-            const res = await fetch('/api/analyze', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lat, lng, location, years: yrs })
-            });
-            if (!res.ok) throw new Error('Erro no servidor. Verifique o Back-end.');
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            return data;
-        }
+    async function callBackend(lat, lng, location, yrs) {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat, lng, location, years: yrs })
+      });
+      if (!res.ok) throw new Error('Erro no servidor. Verifique o Back-end.');
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      return data;
+    }
 
-        function riskClass(v) { return v === 'Alto' ? 'high' : v === 'Médio' ? 'medium' : 'low'; }
-        function scoreClass(s) { return s >= 70 ? 'safe' : s >= 40 ? 'moderate' : 'danger'; }
+    function riskClass(v) { return v === 'Alto' ? 'high' : v === 'Médio' ? 'medium' : 'low'; }
+    function scoreClass(s) { return s >= 70 ? 'safe' : s >= 40 ? 'moderate' : 'danger'; }
+    function verdictClass(v) {
+      if (!v) return '';
+      const t = v.toUpperCase();
+      if (t.includes('SIM') || t.includes('ALTO POTENCIAL')) return 'gold';
+      if (t.includes('RESSALVAS') || t.includes('MÉDIO') || t.includes('MEDIO')) return 'maybe';
+      return 'no';
+    }
 
-        // Classes para as caixas de veredito
-        function verdictClass(v) {
-            if (!v) return '';
-            const text = v.toUpperCase();
-            if (text.includes('SIM') || text.includes('ALTO POTENCIAL')) return 'gold';
-            if (text.includes('RESSALVAS') || text.includes('MÉDIO')) return 'maybe';
-            return 'no';
-        }
+    function renderDisasters(disasters) {
+      if (!disasters || disasters.length === 0) {
+        return `<div class="disaster-item none"><div class="disaster-none">Nenhuma catástrofe registrada nesta região.</div></div>`;
+      }
+      return disasters.map(d => `
+        <div class="disaster-item">
+          <div class="disaster-year">${d.ano || 'Ano desconhecido'} · ${d.tipo || ''}</div>
+          <div class="disaster-desc">${d.descricao}</div>
+        </div>`).join('');
+    }
 
-        function renderResult(a, lat, lng, location) {
-            const avg = Math.round((a.scenarios.optimista.pct + a.scenarios.moderado.pct + a.scenarios.pessimista.pct) / 3);
-            sidebarContent.innerHTML = `
+    function renderResult(a, lat, lng, location) {
+      const avg = Math.round((a.scenarios.optimista.pct + a.scenarios.moderado.pct + a.scenarios.pessimista.pct) / 3);
+      sidebarContent.innerHTML = `
         <div class="result-panel">
           <div class="location-header">
             <div class="location-name">${location}</div>
@@ -541,7 +229,7 @@
           <div>
             <div class="section-title">Riscos Identificados</div>
             <div class="risks-grid">
-              ${Object.entries(a.risks).map(([k, v]) => `
+              ${Object.entries(a.risks).map(([k,v]) => `
                 <div class="risk-item">
                   <div class="risk-item-label">${k}</div>
                   <div class="risk-item-value ${riskClass(v)}">${v}</div>
@@ -572,8 +260,6 @@
               </div>
             </div>
           </div>
-          
-          <!-- SEÇÃO DE MORADIA -->
           <div>
             <div class="section-title">Habitabilidade</div>
             <div class="verdict-box ${verdictClass(a.morar)}">
@@ -581,8 +267,6 @@
               <div class="verdict-text">${a.morar_texto}</div>
             </div>
           </div>
-
-          <!-- NOVA SEÇÃO DE INVESTIMENTO DO SEU PAI -->
           <div>
             <div class="section-title">Potencial de Investimento</div>
             <div class="verdict-box ${verdictClass(a.investir)}">
@@ -590,26 +274,33 @@
               <div class="verdict-text">${a.investir_texto || "Análise econômica indisponível."}</div>
             </div>
           </div>
-
+          <div>
+            <div class="section-title">Catástrofes Registradas</div>
+            <div class="disaster-list">
+              ${renderDisasters(a.catastrofes)}
+            </div>
+          </div>
           <button class="analyze-btn" id="reanalyze-btn">Reanalisar com novos parâmetros</button>
         </div>`;
 
-            document.getElementById('years-slider').addEventListener('input', (e) => {
-                years = parseInt(e.target.value);
-                document.getElementById('years-val').textContent = years + ' anos';
-            });
+      document.getElementById('years-slider').addEventListener('input', (e) => {
+        years = parseInt(e.target.value);
+        document.getElementById('years-val').textContent = years + ' anos';
+      });
 
-            document.getElementById('reanalyze-btn').addEventListener('click', async () => {
-                showLoading(currentLat, currentLng);
-                try {
-                    const analysis = await callBackend(currentLat, currentLng, currentLocation, years);
-                    renderResult(analysis, currentLat, currentLng, currentLocation);
-                } catch (err) {
-                    sidebarContent.innerHTML = `<div class="sidebar-empty"><div class="icon">⚠️</div><p style="color:#ef4444">${err.message}</p></div>`;
-                }
-            });
+      document.getElementById('reanalyze-btn').addEventListener('click', async () => {
+        showLoading(currentLat, currentLng);
+        if (window.innerWidth <= 768) {
+          document.querySelector('.sidebar').scrollIntoView({ behavior: 'smooth' });
         }
-    </script>
+        try {
+          const analysis = await callBackend(currentLat, currentLng, currentLocation, years);
+          renderResult(analysis, currentLat, currentLng, currentLocation);
+        } catch (err) {
+          sidebarContent.innerHTML = `<div class="sidebar-empty"><div class="icon">⚠️</div><p style="color:#ef4444">${err.message}</p></div>`;
+        }
+      });
+    }
+  </script>
 </body>
-
 </html>
