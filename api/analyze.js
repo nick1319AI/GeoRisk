@@ -10,6 +10,8 @@ module.exports = async function handler(req, res) {
 
     const prompt = `Você é um especialista em geologia, clima e desenvolvimento socioeconômico. Analise a localização: "${location}" (lat: ${lat}, lng: ${lng}).
 
+IMPORTANTE: Seja rigoroso e realista. Zonas sísmicas, áreas de enchente, regiões áridas ou pobres devem ter score baixo. Score acima de 80 apenas para regiões genuinamente seguras e desenvolvidas. Nunca invente catástrofes — só cite eventos reais e conhecidos.
+
 Responda APENAS em JSON válido, sem markdown, sem texto extra:
 {
   "score": número de 0 a 100 (100 = totalmente seguro),
@@ -43,7 +45,7 @@ Responda APENAS em JSON válido, sem markdown, sem texto extra:
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: "llama-3.1-8b-instant",
+                model: "llama-3.3-70b-versatile",
                 messages: [{ role: "user", content: prompt }],
                 response_format: { type: "json_object" },
                 temperature: 0.2
