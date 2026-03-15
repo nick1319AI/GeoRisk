@@ -31,7 +31,8 @@ Responda APENAS em JSON válido, sem markdown, sem texto extra:
   "morar": "SIM" ou "COM RESSALVAS" ou "NÃO",
   "morar_texto": "análise de 2 frases sobre morar aqui a longo prazo",
   "investir": "ALTO POTENCIAL" ou "POTENCIAL MÉDIO" ou "NÃO RECOMENDADO",
-  "investir_texto": "análise de 2 frases sobre potencial da região para agronegócio, turismo, energia, indústria ou imóveis"
+  "investir_texto": "análise de 2 frases sobre potencial da região para agronegócio, turismo, energia, indústria ou imóveis",
+  "catastrofes": array de até 5 objetos com catástrofes naturais históricas reais registradas nesta região. Cada objeto: {"ano": "ano", "tipo": "Enchente/Terremoto/Vulcão/Deslizamento/Seca/Tsunami", "descricao": "descrição breve do evento e impacto"}. Se não houver nenhuma, retorne []
 }`;
 
     try {
