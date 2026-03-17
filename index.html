@@ -1,306 +1,646 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>GeoRisk — Análise Geológica & Econômica</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <title>GeoRisk — Globo 3D</title>
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --bg: #0a0e1a; --surface: #111827; --border: #1e2d40;
-      --accent: #00d4aa; --text: #e2e8f0; --muted: #64748b;
-      --danger: #ef4444; --warning: #f59e0b; --safe: #10b981;
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#060a14;--surface:#0d1220;--surface2:#111827;
+      --border:#1a2535;--accent:#00d4aa;--accent2:#0088ff;
+      --text:#e2e8f0;--muted:#4a6080;
+      --danger:#ef4444;--warning:#f59e0b;--safe:#10b981;
     }
-    body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; }
-    .app { display: flex; flex-direction: column; height: 100dvh; }
-    .header { padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; background: var(--surface); flex-shrink: 0; }
-    .logo { font-size: 18px; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; }
-    .logo span { color: var(--text); }
-    .tagline { font-size: 10px; color: var(--muted); font-family: 'Space Mono', monospace; margin-top: 2px; }
+    html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Syne',sans-serif}
+    .app{display:flex;flex-direction:column;height:100dvh}
 
-    /* DESKTOP */
-    .main { display: flex; flex: 1; overflow: hidden; }
-    .map-container { flex: 1; position: relative; }
-    #map { width: 100%; height: 100%; }
-    .map-overlay {
-      position: absolute; top: 12px; left: 12px; z-index: 1000;
-      background: rgba(17,24,39,0.92); border: 1px solid var(--border);
-      border-radius: 8px; padding: 10px 14px;
-      font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted);
+    /* HEADER */
+    .header{
+      padding:10px 18px;border-bottom:1px solid var(--border);
+      display:flex;align-items:center;justify-content:space-between;
+      background:rgba(13,18,32,0.95);backdrop-filter:blur(10px);
+      flex-shrink:0;z-index:100;
     }
-    .map-overlay b { color: var(--accent); display: block; margin-bottom: 4px; }
-    .sidebar { width: 340px; background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+    .logo{font-size:20px;font-weight:800;color:var(--accent);letter-spacing:-1px}
+    .logo span{color:var(--text)}
+    .tagline{font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;margin-top:1px}
+    .header-hint{font-size:11px;color:var(--muted);font-family:'Space Mono',monospace;text-align:right}
+    .header-hint b{color:var(--accent);display:block}
 
-    /* MOBILE */
-    @media (max-width: 768px) {
-      .main { flex-direction: column; overflow: auto; }
-      .map-container { height: 45dvh; flex: none; }
-      .sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border); overflow-y: visible; flex: 1; }
-      .map-overlay { font-size: 10px; padding: 7px 10px; }
+    /* MAIN */
+    .main{display:flex;flex:1;overflow:hidden}
+
+    /* GLOBO */
+    .globe-container{
+      flex:1;position:relative;cursor:grab;
+      background:radial-gradient(ellipse at 30% 40%, #0a1628 0%, #060a14 70%);
+    }
+    .globe-container:active{cursor:grabbing}
+    #globe-canvas{width:100%;height:100%;display:block}
+
+    /* ESTRELAS */
+    .stars{position:absolute;inset:0;pointer-events:none;z-index:0}
+
+    /* COORDS HUD */
+    .coords-hud{
+      position:absolute;bottom:16px;left:16px;z-index:10;
+      font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);
+      background:rgba(13,18,32,0.8);border:1px solid var(--border);
+      border-radius:8px;padding:8px 12px;backdrop-filter:blur(8px);
+    }
+    .coords-hud b{color:var(--accent);display:block;margin-bottom:2px}
+
+    /* CLICK HINT */
+    .click-hint{
+      position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      text-align:center;pointer-events:none;z-index:5;
+      animation:pulse 2s ease-in-out infinite;
+    }
+    .click-hint .hint-icon{font-size:48px;opacity:0.15}
+    .click-hint p{font-size:12px;color:var(--muted);margin-top:8px;font-family:'Space Mono',monospace}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+    /* SIDEBAR */
+    .sidebar{
+      width:360px;background:var(--surface);
+      border-left:1px solid var(--border);
+      display:flex;flex-direction:column;overflow:hidden;
     }
 
-    .sidebar-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; gap: 12px; min-height: 200px; }
-    .sidebar-empty .icon { font-size: 36px; opacity: 0.3; }
-    .sidebar-empty p { color: var(--muted); font-size: 13px; line-height: 1.6; }
-    .result-panel { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
-    .location-header { border-bottom: 1px solid var(--border); padding-bottom: 12px; }
-    .location-name { font-size: 15px; font-weight: 800; }
-    .location-coords { font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; margin-top: 2px; }
-    .score-card { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
-    .score-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
-    .score-value { font-size: 42px; font-weight: 800; line-height: 1; }
-    .score-value.safe { color: var(--safe); }
-    .score-value.moderate { color: var(--warning); }
-    .score-value.danger { color: var(--danger); }
-    .score-verdict { font-size: 12px; color: var(--muted); margin-top: 6px; }
-    .risks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .risk-item { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
-    .risk-item-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-    .risk-item-value { font-size: 13px; font-weight: 600; }
-    .risk-item-value.low { color: var(--safe); }
-    .risk-item-value.medium { color: var(--warning); }
-    .risk-item-value.high { color: var(--danger); }
-    .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-family: 'Space Mono', monospace; margin-bottom: 8px; }
-    .scenarios { display: flex; flex-direction: column; gap: 8px; }
-    .scenario { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
-    .scenario-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-    .scenario-name { font-size: 12px; font-weight: 600; }
-    .scenario-pct { font-size: 13px; font-weight: 700; font-family: 'Space Mono', monospace; }
-    .scenario-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
-    .scenario.optimistic { border-color: #10b98133; }
-    .scenario.optimistic .scenario-name, .scenario.optimistic .scenario-pct { color: var(--safe); }
-    .scenario.moderate2 { border-color: #f59e0b33; }
-    .scenario.moderate2 .scenario-name, .scenario.moderate2 .scenario-pct { color: var(--warning); }
-    .scenario.pessimistic { border-color: #ef444433; }
-    .scenario.pessimistic .scenario-name, .scenario.pessimistic .scenario-pct { color: var(--danger); }
-    .verdict-box { background: var(--bg); border-radius: 10px; padding: 14px; border-left: 3px solid var(--accent); }
-    .verdict-box.no { border-left-color: var(--danger); }
-    .verdict-box.maybe { border-left-color: var(--warning); }
-    .verdict-box.gold { border-left-color: #fbbf24; }
-    .verdict-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
-    .verdict-text { font-size: 12px; color: var(--muted); line-height: 1.6; }
-    .years-control { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
-    .years-control label { font-size: 12px; color: var(--muted); white-space: nowrap; }
-    .years-control input[type=range] { flex: 1; accent-color: var(--accent); }
-    .years-control span { font-size: 13px; font-weight: 700; color: var(--accent); font-family: 'Space Mono', monospace; min-width: 50px; text-align: right; }
-    .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 40px 24px; }
-    .spinner { width: 36px; height: 36px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .loading-text { font-size: 13px; color: var(--muted); text-align: center; font-family: 'Space Mono', monospace; line-height: 1.6; }
-    .analyze-btn { background: var(--accent); color: #0a0e1a; border: none; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 700; font-family: 'Syne', sans-serif; cursor: pointer; width: 100%; transition: opacity 0.2s; }
-    .analyze-btn:hover { opacity: 0.85; }
+    /* TABS */
+    .tabs{
+      display:flex;border-bottom:1px solid var(--border);flex-shrink:0;
+    }
+    .tab{
+      flex:1;padding:10px 6px;font-size:11px;font-weight:600;
+      text-align:center;cursor:pointer;color:var(--muted);
+      border-bottom:2px solid transparent;transition:all 0.2s;
+      font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;
+    }
+    .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+    .tab-content{display:none;flex:1;overflow-y:auto}
+    .tab-content.active{display:flex;flex-direction:column}
+
+    /* SIDEBAR EMPTY */
+    .sidebar-empty{
+      flex:1;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;
+      padding:24px;text-align:center;gap:12px;
+    }
+    .sidebar-empty .icon{font-size:40px;opacity:0.2}
+    .sidebar-empty p{color:var(--muted);font-size:12px;line-height:1.7;font-family:'Space Mono',monospace}
+
+    /* LOADING */
+    .loading-state{
+      flex:1;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;gap:16px;padding:32px;
+    }
+    .spinner{
+      width:40px;height:40px;border:2px solid var(--border);
+      border-top-color:var(--accent);border-radius:50%;
+      animation:spin 0.8s linear infinite;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading-text{font-size:12px;color:var(--muted);text-align:center;font-family:'Space Mono',monospace;line-height:1.7}
+
+    /* RESULT PANEL */
+    .result-panel{padding:16px;display:flex;flex-direction:column;gap:12px}
+    .location-header{border-bottom:1px solid var(--border);padding-bottom:10px}
+    .location-name{font-size:15px;font-weight:800;line-height:1.3}
+    .location-coords{font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;margin-top:3px}
+
+    .score-card{
+      background:var(--bg);border:1px solid var(--border);
+      border-radius:10px;padding:14px;text-align:center;
+    }
+    .score-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+    .score-value{font-size:44px;font-weight:800;line-height:1}
+    .score-value.safe{color:var(--safe)}
+    .score-value.moderate{color:var(--warning)}
+    .score-value.danger{color:var(--danger)}
+    .score-verdict{font-size:11px;color:var(--muted);margin-top:5px}
+
+    .section-title{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-family:'Space Mono',monospace;margin-bottom:7px}
+
+    .risks-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+    .risk-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px}
+    .risk-item-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px}
+    .risk-item-value{font-size:12px;font-weight:600}
+    .risk-item-value.low{color:var(--safe)}
+    .risk-item-value.medium{color:var(--warning)}
+    .risk-item-value.high{color:var(--danger)}
+
+    .scenarios{display:flex;flex-direction:column;gap:7px}
+    .scenario{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 11px}
+    .scenario-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+    .scenario-name{font-size:11px;font-weight:600}
+    .scenario-pct{font-size:12px;font-weight:700;font-family:'Space Mono',monospace}
+    .scenario-desc{font-size:10px;color:var(--muted);line-height:1.5}
+    .scenario.optimistic{border-color:#10b98133}
+    .scenario.optimistic .scenario-name,.scenario.optimistic .scenario-pct{color:var(--safe)}
+    .scenario.moderate2{border-color:#f59e0b33}
+    .scenario.moderate2 .scenario-name,.scenario.moderate2 .scenario-pct{color:var(--warning)}
+    .scenario.pessimistic{border-color:#ef444433}
+    .scenario.pessimistic .scenario-name,.scenario.pessimistic .scenario-pct{color:var(--danger)}
+
+    .verdict-box{background:var(--bg);border-radius:10px;padding:12px;border-left:3px solid var(--accent)}
+    .verdict-box.no{border-left-color:var(--danger)}
+    .verdict-box.maybe{border-left-color:var(--warning)}
+    .verdict-box.gold{border-left-color:#fbbf24}
+    .verdict-title{font-size:12px;font-weight:700;margin-bottom:5px}
+    .verdict-text{font-size:11px;color:var(--muted);line-height:1.6}
+
+    .years-control{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 11px}
+    .years-control label{font-size:11px;color:var(--muted);white-space:nowrap}
+    .years-control input[type=range]{flex:1;accent-color:var(--accent)}
+    .years-control span{font-size:12px;font-weight:700;color:var(--accent);font-family:'Space Mono',monospace;min-width:48px;text-align:right}
+
+    .analyze-btn{
+      background:var(--accent);color:#060a14;border:none;border-radius:8px;
+      padding:10px 16px;font-size:13px;font-weight:700;
+      font-family:'Syne',sans-serif;cursor:pointer;width:100%;transition:opacity 0.2s;
+    }
+    .analyze-btn:hover{opacity:0.85}
 
     /* CATÁSTROFES */
-    .disaster-list { display: flex; flex-direction: column; gap: 8px; }
-    .disaster-item { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; border-left: 3px solid var(--danger); }
-    .disaster-item.none { border-left-color: var(--safe); }
-    .disaster-year { font-size: 10px; color: var(--muted); font-family: 'Space Mono', monospace; margin-bottom: 3px; }
-    .disaster-desc { font-size: 12px; line-height: 1.5; color: var(--text); }
-    .disaster-none { font-size: 12px; color: var(--safe); }
+    .disaster-list{display:flex;flex-direction:column;gap:7px}
+    .disaster-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 11px;border-left:3px solid var(--danger)}
+    .disaster-item.none{border-left-color:var(--safe)}
+    .disaster-year{font-size:9px;color:var(--muted);font-family:'Space Mono',monospace;margin-bottom:3px}
+    .disaster-desc{font-size:11px;line-height:1.5}
+    .disaster-none{font-size:11px;color:var(--safe)}
+
+    /* POLÍTICA */
+    .pol-grid{display:flex;flex-direction:column;gap:7px}
+    .pol-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 11px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+    .pol-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;padding-top:2px}
+    .pol-value{font-size:12px;font-weight:600;text-align:right;line-height:1.4}
+
+    /* APRENDIZADO */
+    .learn-list{display:flex;flex-direction:column;gap:8px}
+    .learn-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;border-left:3px solid var(--accent2)}
+    .learn-title{font-size:11px;font-weight:700;color:var(--accent2);margin-bottom:4px}
+    .learn-text{font-size:11px;color:var(--muted);line-height:1.6}
+
+    /* MOBILE */
+    @media(max-width:768px){
+      .main{flex-direction:column;overflow:auto}
+      .globe-container{height:50dvh;flex:none}
+      .sidebar{width:100%;border-left:none;border-top:1px solid var(--border);overflow:visible;flex:1}
+      .tab-content.active{display:flex;flex-direction:column;min-height:300px}
+      .header-hint{display:none}
+    }
   </style>
 </head>
 <body>
-  <div class="app">
-    <div class="header">
-      <div>
-        <div class="logo">GEO<span>RISK</span></div>
-        <div class="tagline">Análise de Risco e Potencial de Investimento</div>
-      </div>
+<div class="app">
+  <div class="header">
+    <div>
+      <div class="logo">GEO<span>RISK</span></div>
+      <div class="tagline">Análise de Risco e Potencial de Investimento</div>
     </div>
-    <div class="main">
-      <div class="map-container">
-        <div id="map"></div>
-        <div class="map-overlay">
-          <b>Como usar</b>
-          Toque em qualquer ponto<br>do mapa para analisar
-        </div>
-      </div>
-      <div class="sidebar">
-        <div id="sidebar-content">
-          <div class="sidebar-empty">
-            <div class="icon">🌍</div>
-            <p>Toque em qualquer lugar do mapa para analisar os riscos geológicos e o potencial econômico da região</p>
-          </div>
-        </div>
-      </div>
+    <div class="header-hint">
+      <b>Como usar</b>
+      Arraste para girar · Clique para analisar
     </div>
   </div>
+  <div class="main">
+    <div class="globe-container">
+      <canvas id="globe-canvas"></canvas>
+      <div class="click-hint" id="click-hint">
+        <div class="hint-icon">🌍</div>
+        <p>Arraste para girar<br>Clique para analisar</p>
+      </div>
+      <div class="coords-hud">
+        <b>Coordenadas</b>
+        <span id="hud-coords">—</span>
+      </div>
+    </div>
+    <div class="sidebar">
+      <div class="tabs" id="tabs" style="display:none">
+        <div class="tab active" data-tab="riscos">Riscos</div>
+        <div class="tab" data-tab="politica">Política</div>
+        <div class="tab" data-tab="aprender">Aprender</div>
+      </div>
+      <div class="tab-content active" id="tab-riscos">
+        <div class="sidebar-empty" id="empty-state">
+          <div class="icon">🌐</div>
+          <p>Gire o globo e clique<br>em qualquer região<br>para analisar</p>
+        </div>
+      </div>
+      <div class="tab-content" id="tab-politica"></div>
+      <div class="tab-content" id="tab-aprender"></div>
+    </div>
+  </div>
+</div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    const map = L.map('map').setView([-15.78, -47.92], 4);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '©OpenStreetMap ©CARTO', maxZoom: 18
-    }).addTo(map);
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ── GLOBO 3D ──────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('globe-canvas');
+const container = canvas.parentElement;
 
-    let marker = null;
-    let years = 30;
-    let currentLat, currentLng, currentLocation;
-    const sidebarContent = document.getElementById('sidebar-content');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0x000000, 0);
 
-    map.on('click', async (e) => {
-      const { lat, lng } = e.latlng;
-      currentLat = lat; currentLng = lng;
-      if (marker) map.removeLayer(marker);
-      marker = L.circleMarker([lat, lng], {
-        radius: 8, fillColor: '#00d4aa', color: '#00d4aa',
-        weight: 2, opacity: 1, fillOpacity: 0.4
-      }).addTo(map);
-      showLoading(lat, lng);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+camera.position.z = 2.5;
 
-      // No mobile, rola para a sidebar automaticamente
-      if (window.innerWidth <= 768) {
-        document.querySelector('.sidebar').scrollIntoView({ behavior: 'smooth' });
-      }
+// Iluminação
+const ambientLight = new THREE.AmbientLight(0x333344, 1.2);
+scene.add(ambientLight);
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.8);
+sunLight.position.set(5, 3, 5);
+scene.add(sunLight);
+const rimLight = new THREE.DirectionalLight(0x0088ff, 0.4);
+rimLight.position.set(-5, -2, -3);
+scene.add(rimLight);
 
-      try {
-        currentLocation = await reverseGeocode(lat, lng);
-        const analysis = await callBackend(lat, lng, currentLocation, years);
-        renderResult(analysis, lat, lng, currentLocation);
-      } catch (err) {
-        sidebarContent.innerHTML = `<div class="sidebar-empty"><div class="icon">⚠️</div><p style="color:#ef4444">${err.message}</p></div>`;
-      }
-    });
+// Globo
+const geo = new THREE.SphereGeometry(1, 64, 64);
+const loader = new THREE.TextureLoader();
 
-    function showLoading(lat, lng) {
-      sidebarContent.innerHTML = `
-        <div class="loading-state">
-          <div class="spinner"></div>
-          <div class="loading-text">Analisando região...<br>${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
-        </div>`;
+// Usa textura de cor da NASA (domínio público)
+const earthTex = loader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
+const bumpTex = loader.load('https://unpkg.com/three-globe/example/img/earth-topology.png');
+const specTex = loader.load('https://unpkg.com/three-globe/example/img/earth-water.png');
+
+const mat = new THREE.MeshPhongMaterial({
+  map: earthTex,
+  bumpMap: bumpTex,
+  bumpScale: 0.05,
+  specularMap: specTex,
+  specular: new THREE.Color(0x226688),
+  shininess: 15,
+});
+const globe = new THREE.Mesh(geo, mat);
+scene.add(globe);
+
+// Atmosfera
+const atmGeo = new THREE.SphereGeometry(1.02, 64, 64);
+const atmMat = new THREE.MeshPhongMaterial({
+  color: 0x0088ff,
+  transparent: true,
+  opacity: 0.08,
+  side: THREE.FrontSide,
+});
+scene.add(new THREE.Mesh(atmGeo, atmMat));
+
+// Marcador de clique
+const markerGeo = new THREE.SphereGeometry(0.02, 16, 16);
+const markerMat = new THREE.MeshBasicMaterial({ color: 0x00d4aa });
+const marker = new THREE.Mesh(markerGeo, markerMat);
+marker.visible = false;
+scene.add(marker);
+
+// Resize
+function resize() {
+  const w = container.clientWidth, h = container.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+resize();
+new ResizeObserver(resize).observe(container);
+
+// Rotação automática + drag
+let isDragging = false, prevX = 0, prevY = 0;
+let rotX = 0, rotY = 0;
+let velX = 0, velY = 0;
+let autoRotate = true;
+
+function getPos(e) {
+  return e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
+                   : { x: e.clientX, y: e.clientY };
+}
+
+container.addEventListener('mousedown', e => { isDragging = true; autoRotate = false; const p = getPos(e); prevX = p.x; prevY = p.y; velX = velY = 0; });
+container.addEventListener('touchstart', e => { isDragging = true; autoRotate = false; const p = getPos(e); prevX = p.x; prevY = p.y; velX = velY = 0; }, { passive: true });
+
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const p = getPos(e);
+  velX = (p.x - prevX) * 0.005;
+  velY = (p.y - prevY) * 0.005;
+  rotY += velX; rotX += velY;
+  rotX = Math.max(-Math.PI/2, Math.min(Math.PI/2, rotX));
+  prevX = p.x; prevY = p.y;
+});
+window.addEventListener('touchmove', e => {
+  if (!isDragging) return;
+  const p = getPos(e);
+  velX = (p.x - prevX) * 0.005;
+  velY = (p.y - prevY) * 0.005;
+  rotY += velX; rotX += velY;
+  rotX = Math.max(-Math.PI/2, Math.min(Math.PI/2, rotX));
+  prevX = p.x; prevY = p.y;
+}, { passive: true });
+
+window.addEventListener('mouseup', () => { isDragging = false; });
+window.addEventListener('touchend', () => { isDragging = false; });
+
+// Raycasting para pegar lat/lng
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+function canvasClick(e) {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const px = e.touches ? e.changedTouches[0].clientX : e.clientX;
+  const py = e.touches ? e.changedTouches[0].clientY : e.clientY;
+  mouse.x = ((px - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((py - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObject(globe);
+  if (hits.length > 0) {
+    const point = hits[0].point.clone();
+    // Converte ponto 3D para lat/lng
+    const inv = new THREE.Matrix4().copy(globe.matrixWorld).invert();
+    point.applyMatrix4(inv).normalize();
+    const lat = Math.asin(point.y) * (180 / Math.PI);
+    const lng = Math.atan2(point.z, point.x) * (180 / Math.PI);
+    // Posiciona marcador
+    const phi = (90 - lat) * Math.PI / 180;
+    const theta = (lng + 180) * Math.PI / 180;
+    marker.position.set(
+      -Math.sin(phi) * Math.cos(theta),
+      Math.cos(phi),
+      Math.sin(phi) * Math.sin(theta)
+    );
+    marker.visible = true;
+    onGlobeClick(lat, -lng);
+  }
+}
+
+canvas.addEventListener('click', canvasClick);
+canvas.addEventListener('touchend', e => {
+  if (!isDragging) canvasClick(e);
+});
+
+// HUD coords ao mover mouse
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObject(globe);
+  if (hits.length > 0) {
+    const p = hits[0].point.clone();
+    const inv = new THREE.Matrix4().copy(globe.matrixWorld).invert();
+    p.applyMatrix4(inv).normalize();
+    const lat = (Math.asin(p.y) * 180 / Math.PI).toFixed(2);
+    const lng = (Math.atan2(p.z, p.x) * 180 / Math.PI).toFixed(2);
+    document.getElementById('hud-coords').textContent = `${lat}° / ${-parseFloat(lng).toFixed(2)}°`;
+  }
+});
+
+// Loop de animação
+function animate() {
+  requestAnimationFrame(animate);
+  if (!isDragging) {
+    if (autoRotate) rotY += 0.002;
+    else { velX *= 0.92; velY *= 0.92; rotY += velX; rotX += velY; }
+  }
+  globe.rotation.x = rotX;
+  globe.rotation.y = rotY;
+  marker.rotation.x = rotX;
+  marker.rotation.y = rotY;
+  renderer.render(scene, camera);
+}
+animate();
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ── ANÁLISE ───────────────────────────────────────────────────────────────────
+let years = 30;
+let currentLat, currentLng, currentLocation;
+let currentData = null;
+
+async function onGlobeClick(lat, lng) {
+  currentLat = lat; currentLng = lng;
+  document.getElementById('click-hint').style.display = 'none';
+  document.getElementById('tabs').style.display = 'flex';
+
+  // Ativa aba riscos
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector('[data-tab="riscos"]').classList.add('active');
+  document.getElementById('tab-riscos').classList.add('active');
+
+  showLoading('tab-riscos', lat, lng);
+  showLoadingSimple('tab-politica');
+  showLoadingSimple('tab-aprender');
+
+  if (window.innerWidth <= 768) {
+    document.querySelector('.sidebar').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  try {
+    currentLocation = await reverseGeocode(lat, lng);
+    const data = await callBackend(lat, lng, currentLocation, years);
+    currentData = data;
+    renderRiscos(data, lat, lng, currentLocation);
+    renderPolitica(data, currentLocation);
+    renderAprender(data, currentLocation);
+  } catch (err) {
+    document.getElementById('tab-riscos').innerHTML = `<div class="sidebar-empty"><div class="icon">⚠️</div><p style="color:#ef4444">${err.message}</p></div>`;
+  }
+}
+
+function showLoading(tabId, lat, lng) {
+  document.getElementById(tabId).innerHTML = `
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <div class="loading-text">Analisando região...<br>${lat.toFixed(4)}°, ${lng.toFixed(4)}°</div>
+    </div>`;
+}
+
+function showLoadingSimple(tabId) {
+  document.getElementById(tabId).innerHTML = `<div class="loading-state"><div class="spinner"></div></div>`;
+}
+
+async function reverseGeocode(lat, lng) {
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+    const d = await r.json();
+    return d.display_name?.split(',').slice(0, 2).join(',') || `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
+  } catch { return `${lat.toFixed(2)}, ${lng.toFixed(2)}`; }
+}
+
+async function callBackend(lat, lng, location, yrs) {
+  const res = await fetch('/api/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lat, lng, location, years: yrs })
+  });
+  if (!res.ok) throw new Error('Erro no servidor.');
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+function riskClass(v) { return v === 'Alto' ? 'high' : v === 'Médio' ? 'medium' : 'low'; }
+function scoreClass(s) { return s >= 70 ? 'safe' : s >= 40 ? 'moderate' : 'danger'; }
+function verdictClass(v) {
+  if (!v) return '';
+  const t = v.toUpperCase();
+  if (t.includes('SIM') || t.includes('ALTO')) return 'gold';
+  if (t.includes('RESSALVAS') || t.includes('MÉDIO') || t.includes('MEDIO')) return 'maybe';
+  return 'no';
+}
+
+function renderRiscos(a, lat, lng, location) {
+  const avg = Math.round((a.scenarios.optimista.pct + a.scenarios.moderado.pct + a.scenarios.pessimista.pct) / 3);
+  const disasters = a.catastrofes || [];
+  const disasterHTML = disasters.length === 0
+    ? `<div class="disaster-item none"><div class="disaster-none">Nenhuma catástrofe registrada.</div></div>`
+    : disasters.map(d => `<div class="disaster-item"><div class="disaster-year">${d.ano} · ${d.tipo}</div><div class="disaster-desc">${d.descricao}</div></div>`).join('');
+
+  document.getElementById('tab-riscos').innerHTML = `
+    <div class="result-panel">
+      <div class="location-header">
+        <div class="location-name">${location}</div>
+        <div class="location-coords">${lat.toFixed(4)}°, ${lng.toFixed(4)}°</div>
+      </div>
+      <div class="score-card">
+        <div class="score-label">Índice de Segurança</div>
+        <div class="score-value ${scoreClass(a.score)}">${a.score}</div>
+        <div class="score-verdict">${a.verdict_text}</div>
+      </div>
+      <div>
+        <div class="section-title">Riscos Identificados</div>
+        <div class="risks-grid">
+          ${Object.entries(a.risks).map(([k,v]) => `
+            <div class="risk-item">
+              <div class="risk-item-label">${k}</div>
+              <div class="risk-item-value ${riskClass(v)}">${v}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+      <div>
+        <div class="years-control">
+          <label>Simular em</label>
+          <input type="range" min="5" max="100" step="5" value="${years}" id="years-slider">
+          <span id="years-val">${years} anos</span>
+        </div>
+      </div>
+      <div>
+        <div class="section-title">3 Cenários · média ${avg}% seguro</div>
+        <div class="scenarios">
+          <div class="scenario optimistic">
+            <div class="scenario-header"><span class="scenario-name">Otimista</span><span class="scenario-pct">${a.scenarios.optimista.pct}%</span></div>
+            <div class="scenario-desc">${a.scenarios.optimista.desc}</div>
+          </div>
+          <div class="scenario moderate2">
+            <div class="scenario-header"><span class="scenario-name">Moderado</span><span class="scenario-pct">${a.scenarios.moderado.pct}%</span></div>
+            <div class="scenario-desc">${a.scenarios.moderado.desc}</div>
+          </div>
+          <div class="scenario pessimistic">
+            <div class="scenario-header"><span class="scenario-name">Pessimista</span><span class="scenario-pct">${a.scenarios.pessimista.pct}%</span></div>
+            <div class="scenario-desc">${a.scenarios.pessimista.desc}</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="section-title">Habitabilidade</div>
+        <div class="verdict-box ${verdictClass(a.morar)}">
+          <div class="verdict-title">${a.morar}</div>
+          <div class="verdict-text">${a.morar_texto}</div>
+        </div>
+      </div>
+      <div>
+        <div class="section-title">Potencial de Investimento</div>
+        <div class="verdict-box ${verdictClass(a.investir)}">
+          <div class="verdict-title">${a.investir || 'N/A'}</div>
+          <div class="verdict-text">${a.investir_texto || 'Análise indisponível.'}</div>
+        </div>
+      </div>
+      <div>
+        <div class="section-title">Catástrofes Registradas</div>
+        <div class="disaster-list">${disasterHTML}</div>
+      </div>
+      <button class="analyze-btn" id="reanalyze-btn">Reanalisar com novos parâmetros</button>
+    </div>`;
+
+  document.getElementById('years-slider').addEventListener('input', e => {
+    years = parseInt(e.target.value);
+    document.getElementById('years-val').textContent = years + ' anos';
+  });
+  document.getElementById('reanalyze-btn').addEventListener('click', async () => {
+    showLoading('tab-riscos', currentLat, currentLng);
+    showLoadingSimple('tab-politica');
+    showLoadingSimple('tab-aprender');
+    try {
+      const data = await callBackend(currentLat, currentLng, currentLocation, years);
+      currentData = data;
+      renderRiscos(data, currentLat, currentLng, currentLocation);
+      renderPolitica(data, currentLocation);
+      renderAprender(data, currentLocation);
+    } catch (err) {
+      document.getElementById('tab-riscos').innerHTML = `<div class="sidebar-empty"><div class="icon">⚠️</div><p style="color:#ef4444">${err.message}</p></div>`;
     }
+  });
+}
 
-    async function reverseGeocode(lat, lng) {
-      try {
-        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
-        const d = await r.json();
-        return d.display_name?.split(',').slice(0, 2).join(',') || `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
-      } catch { return `${lat.toFixed(2)}, ${lng.toFixed(2)}`; }
-    }
+function renderPolitica(a, location) {
+  const p = a.politica || {};
+  const items = [
+    ['País', p.pais || '—'],
+    ['Capital', p.capital || '—'],
+    ['Governo', p.governo || '—'],
+    ['População', p.populacao || '—'],
+    ['PIB per capita', p.pib_per_capita || '—'],
+    ['Idioma', p.idioma || '—'],
+    ['Moeda', p.moeda || '—'],
+    ['Continente', p.continente || '—'],
+  ];
+  document.getElementById('tab-politica').innerHTML = `
+    <div class="result-panel">
+      <div class="location-header">
+        <div class="location-name">${location}</div>
+        <div class="location-coords">Dados Políticos e Econômicos</div>
+      </div>
+      <div class="pol-grid">
+        ${items.map(([l,v]) => `
+          <div class="pol-item">
+            <span class="pol-label">${l}</span>
+            <span class="pol-value">${v}</span>
+          </div>`).join('')}
+      </div>
+      ${p.contexto ? `<div class="verdict-box"><div class="verdict-title">Contexto</div><div class="verdict-text">${p.contexto}</div></div>` : ''}
+    </div>`;
+}
 
-    async function callBackend(lat, lng, location, yrs) {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat, lng, location, years: yrs })
-      });
-      if (!res.ok) throw new Error('Erro no servidor. Verifique o Back-end.');
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      return data;
-    }
-
-    function riskClass(v) { return v === 'Alto' ? 'high' : v === 'Médio' ? 'medium' : 'low'; }
-    function scoreClass(s) { return s >= 70 ? 'safe' : s >= 40 ? 'moderate' : 'danger'; }
-    function verdictClass(v) {
-      if (!v) return '';
-      const t = v.toUpperCase();
-      if (t.includes('SIM') || t.includes('ALTO POTENCIAL')) return 'gold';
-      if (t.includes('RESSALVAS') || t.includes('MÉDIO') || t.includes('MEDIO')) return 'maybe';
-      return 'no';
-    }
-
-    function renderDisasters(disasters) {
-      if (!disasters || disasters.length === 0) {
-        return `<div class="disaster-item none"><div class="disaster-none">Nenhuma catástrofe registrada nesta região.</div></div>`;
-      }
-      return disasters.map(d => `
-        <div class="disaster-item">
-          <div class="disaster-year">${d.ano || 'Ano desconhecido'} · ${d.tipo || ''}</div>
-          <div class="disaster-desc">${d.descricao}</div>
+function renderAprender(a, location) {
+  const fatos = a.aprendizado || [];
+  const fatosHTML = fatos.length === 0
+    ? `<div class="sidebar-empty"><p>Sem conteúdo educacional disponível.</p></div>`
+    : fatos.map(f => `
+        <div class="learn-item">
+          <div class="learn-title">${f.titulo}</div>
+          <div class="learn-text">${f.conteudo}</div>
         </div>`).join('');
-    }
-
-    function renderResult(a, lat, lng, location) {
-      const avg = Math.round((a.scenarios.optimista.pct + a.scenarios.moderado.pct + a.scenarios.pessimista.pct) / 3);
-      sidebarContent.innerHTML = `
-        <div class="result-panel">
-          <div class="location-header">
-            <div class="location-name">${location}</div>
-            <div class="location-coords">${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
-          </div>
-          <div class="score-card">
-            <div class="score-label">Índice de Segurança</div>
-            <div class="score-value ${scoreClass(a.score)}">${a.score}</div>
-            <div class="score-verdict">${a.verdict_text}</div>
-          </div>
-          <div>
-            <div class="section-title">Riscos Identificados</div>
-            <div class="risks-grid">
-              ${Object.entries(a.risks).map(([k,v]) => `
-                <div class="risk-item">
-                  <div class="risk-item-label">${k}</div>
-                  <div class="risk-item-value ${riskClass(v)}">${v}</div>
-                </div>`).join('')}
-            </div>
-          </div>
-          <div>
-            <div class="years-control">
-              <label>Simular em</label>
-              <input type="range" min="5" max="100" step="5" value="${years}" id="years-slider">
-              <span id="years-val">${years} anos</span>
-            </div>
-          </div>
-          <div>
-            <div class="section-title">3 Cenários · média ${avg}% seguro</div>
-            <div class="scenarios">
-              <div class="scenario optimistic">
-                <div class="scenario-header"><span class="scenario-name">Otimista</span><span class="scenario-pct">${a.scenarios.optimista.pct}%</span></div>
-                <div class="scenario-desc">${a.scenarios.optimista.desc}</div>
-              </div>
-              <div class="scenario moderate2">
-                <div class="scenario-header"><span class="scenario-name">Moderado</span><span class="scenario-pct">${a.scenarios.moderado.pct}%</span></div>
-                <div class="scenario-desc">${a.scenarios.moderado.desc}</div>
-              </div>
-              <div class="scenario pessimistic">
-                <div class="scenario-header"><span class="scenario-name">Pessimista</span><span class="scenario-pct">${a.scenarios.pessimista.pct}%</span></div>
-                <div class="scenario-desc">${a.scenarios.pessimista.desc}</div>
-              </div>
-            </div>
-          </div>
-          <div>
-            <div class="section-title">Habitabilidade</div>
-            <div class="verdict-box ${verdictClass(a.morar)}">
-              <div class="verdict-title">${a.morar}</div>
-              <div class="verdict-text">${a.morar_texto}</div>
-            </div>
-          </div>
-          <div>
-            <div class="section-title">Potencial de Investimento</div>
-            <div class="verdict-box ${verdictClass(a.investir)}">
-              <div class="verdict-title">${a.investir || "N/A"}</div>
-              <div class="verdict-text">${a.investir_texto || "Análise econômica indisponível."}</div>
-            </div>
-          </div>
-          <div>
-            <div class="section-title">Catástrofes Registradas</div>
-            <div class="disaster-list">
-              ${renderDisasters(a.catastrofes)}
-            </div>
-          </div>
-          <button class="analyze-btn" id="reanalyze-btn">Reanalisar com novos parâmetros</button>
-        </div>`;
-
-      document.getElementById('years-slider').addEventListener('input', (e) => {
-        years = parseInt(e.target.value);
-        document.getElementById('years-val').textContent = years + ' anos';
-      });
-
-      document.getElementById('reanalyze-btn').addEventListener('click', async () => {
-        showLoading(currentLat, currentLng);
-        if (window.innerWidth <= 768) {
-          document.querySelector('.sidebar').scrollIntoView({ behavior: 'smooth' });
-        }
-        try {
-          const analysis = await callBackend(currentLat, currentLng, currentLocation, years);
-          renderResult(analysis, currentLat, currentLng, currentLocation);
-        } catch (err) {
-          sidebarContent.innerHTML = `<div class="sidebar-empty"><div class="icon">⚠️</div><p style="color:#ef4444">${err.message}</p></div>`;
-        }
-      });
-    }
-  </script>
+  document.getElementById('tab-aprender').innerHTML = `
+    <div class="result-panel">
+      <div class="location-header">
+        <div class="location-name">${location}</div>
+        <div class="location-coords">Aprenda sobre essa região</div>
+      </div>
+      <div class="learn-list">${fatosHTML}</div>
+    </div>`;
+}
+</script>
 </body>
 </html>
